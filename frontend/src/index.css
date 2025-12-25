@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --olympus-navy: #0f1b2e;
+  --olympus-gold: #d4af37;
+  --olympus-marble: #f5f5f0;
+}
+
+body {
+  @apply bg-olympus-marble text-gray-900 font-sans;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-display;
+}
+
+/* Greek-inspired decorative elements */
+.olympus-divider {
+  @apply relative my-8;
+}
+
+.olympus-divider::before {
+  content: '';
+  @apply absolute top-1/2 left-0 right-0 h-px bg-gradient-to-r from-transparent via-olympus-gold to-transparent;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-olympus-marble;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-olympus-stone rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-olympus-bronze;
+}
+
+/* Button styles */
+.btn-primary {
+  @apply bg-olympus-gold hover:bg-olympus-gold-light text-olympus-navy font-semibold px-6 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg;
+}
+
+.btn-secondary {
+  @apply bg-olympus-navy hover:bg-gray-800 text-olympus-marble font-semibold px-6 py-2 rounded-lg transition-all duration-200;
+}
+
+/* Card styles */
+.olympus-card {
+  @apply bg-white rounded-lg shadow-lg p-6 border border-olympus-stone/20;
+}
+
+/* Calendar customizations */
+.fc {
+  @apply font-sans;
+}
+
+.fc-toolbar-title {
+  @apply font-display text-2xl text-olympus-navy;
+}
+
+.fc-button {
+  @apply bg-olympus-navy hover:bg-olympus-gold hover:text-olympus-navy transition-colors;
+}
+
+.fc-event {
+  @apply cursor-pointer transition-transform hover:scale-105;
+}
+
+/* Input styles */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+textarea,
+select {
+  @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-olympus-gold focus:border-transparent transition-all;
+}
+
+/* Loading spinner */
+.spinner {
+  @apply animate-spin rounded-full border-4 border-olympus-stone/20 border-t-olympus-gold h-12 w-12;
+}

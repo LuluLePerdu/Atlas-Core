@@ -69,6 +69,16 @@ web_modules/
 .env
 .env.*
 !.env.example
+!.env.production.example
+
+# Database backups
+backups/
+*.sql
+*.dump
+
+# Traefik SSL certificates
+traefik-certificates/
+acme.json
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
