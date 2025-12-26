@@ -61,6 +61,26 @@ export const useAuthStore = create(
         } catch (error) {
           throw error
         }
+      },
+
+      refreshAccessToken: async () => {
+        try {
+          const refreshToken = localStorage.getItem('refreshToken')
+          if (!refreshToken) {
+            throw new Error('No refresh token available')
+          }
+
+          const { data } = await api.post('/auth/refresh', { refreshToken })
+          localStorage.setItem('token', data.token)
+          localStorage.setItem('refreshToken', data.refreshToken)
+          set({ token: data.token })
+          return data.token
+        } catch (error) {
+          localStorage.removeItem('token')
+          localStorage.removeItem('refreshToken')
+          set({ user: null, token: null })
+          throw error
+        }
       }
     }),
     {

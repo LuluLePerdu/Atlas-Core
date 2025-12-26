@@ -96,11 +96,11 @@ export default function BlockModal({ isOpen, onClose, day, weekStartDate }) {
               onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg"
             >
-              <option value="workout">💪 {t('workout')}</option>
-              <option value="meal">🍽️ {t('meal')}</option>
-              <option value="work">📚 {t('work')}</option>
-              <option value="sleep">😴 {t('sleep')}</option>
-              <option value="other">📌 {t('other')}</option>
+              <option value="workout">{t('workout')}</option>
+              <option value="meal">{t('meal')}</option>
+              <option value="work">{t('work')}</option>
+              <option value="sleep">{t('sleep')}</option>
+              <option value="other">{t('other')}</option>
             </select>
           </div>
 

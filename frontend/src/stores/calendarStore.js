@@ -20,9 +20,12 @@ export const useCalendarStore = create((set, get) => ({
 
   createBlock: async (blockData) => {
     try {
+      const conflicts = get().getConflicts(blockData)
+      
       const { data } = await api.post('/calendar/block', blockData)
       set((state) => ({ blocks: [...state.blocks, data] }))
-      return data
+      
+      return { block: data, conflicts }
     } catch (error) {
       throw error
     }
@@ -60,6 +63,52 @@ export const useCalendarStore = create((set, get) => ({
       return data
     } catch (error) {
       throw error
+    }
+  },
+
+  // Get conflicting blocks for a given block
+  getConflicts: (block) => {
+    if (!block || !block.start_time || !block.end_time) return []
+    
+    const blocks = get().blocks
+    const blockStart = new Date(block.start_time)
+    const blockEnd = new Date(block.end_time)
+    
+    return blocks.filter(b => {
+      if (b.id === block.id) return false
+      if (b.day_of_week !== block.day_of_week) return false
+      
+      const bStart = new Date(b.start_time)
+      const bEnd = new Date(b.end_time)
+      
+      // Check if there's overlap
+      return (blockStart < bEnd && blockEnd > bStart)
+    })
+  },
+
+  // Resolve conflicts by moving blocks
+  resolveConflict: async (blockId, strategy = 'push') => {
+    const state = get()
+    const block = state.blocks.find(b => b.id === blockId)
+    if (!block) return
+
+    const conflicts = state.getConflicts(block)
+    if (conflicts.length === 0) return
+
+    if (strategy === 'push') {
+      // Push conflicting blocks forward
+      const blockEnd = new Date(block.end_time)
+      
+      for (const conflict of conflicts) {
+        const conflictStart = new Date(conflict.start_time)
+        const conflictEnd = new Date(conflict.end_time)
+        const duration = conflictEnd - conflictStart
+        
+        const newStart = new Date(blockEnd)
+        const newEnd = new Date(blockEnd.getTime() + duration)
+        
+        await state.moveBlock(conflict.id, newStart.toISOString(), newEnd.toISOString())
+      }
     }
   },
 

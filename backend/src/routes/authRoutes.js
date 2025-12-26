@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const RefreshToken = require('../models/RefreshToken');
 const jwtConfig = require('../config/jwt');
 const { validate, userValidation } = require('../middleware/validator');
 const { authLimiter } = require('../middleware/rateLimiter');
@@ -33,11 +34,9 @@ router.post('/register', authLimiter, validate(userValidation.register), async (
       { expiresIn: jwtConfig.expiresIn }
     );
 
-    const refreshToken = jwt.sign(
-      { userId: user.id },
-      jwtConfig.refreshSecret,
-      { expiresIn: jwtConfig.refreshExpiresIn }
-    );
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('user-agent');
+    const refreshTokenDoc = await RefreshToken.create(user.id, ipAddress, userAgent);
 
     res.status(201).json({
       user: {
@@ -46,7 +45,7 @@ router.post('/register', authLimiter, validate(userValidation.register), async (
         username: user.username
       },
       token,
-      refreshToken
+      refreshToken: refreshTokenDoc.token
     });
   } catch (error) {
     next(error);
@@ -74,11 +73,9 @@ router.post('/login', authLimiter, validate(userValidation.login), async (req, r
       { expiresIn: jwtConfig.expiresIn }
     );
 
-    const refreshToken = jwt.sign(
-      { userId: user.id },
-      jwtConfig.refreshSecret,
-      { expiresIn: jwtConfig.refreshExpiresIn }
-    );
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('user-agent');
+    const refreshTokenDoc = await RefreshToken.create(user.id, ipAddress, userAgent);
 
     res.json({
       user: {
@@ -87,7 +84,7 @@ router.post('/login', authLimiter, validate(userValidation.login), async (req, r
         username: user.username
       },
       token,
-      refreshToken
+      refreshToken: refreshTokenDoc.token
     });
   } catch (error) {
     next(error);
@@ -103,20 +100,34 @@ router.post('/refresh', async (req, res, next) => {
       return res.status(400).json({ error: 'Refresh token required' });
     }
 
-    const decoded = jwt.verify(refreshToken, jwtConfig.refreshSecret);
-    const user = await User.findById(decoded.userId);
+    // Find and validate refresh token
+    const refreshTokenDoc = await RefreshToken.findByToken(refreshToken);
+    if (!refreshTokenDoc) {
+      return res.status(401).json({ error: 'Invalid or expired refresh token' });
+    }
 
+    const user = await User.findById(refreshTokenDoc.user_id);
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
     }
 
+    // Generate new access token
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       jwtConfig.secret,
       { expiresIn: jwtConfig.expiresIn }
     );
 
-    res.json({ token });
+    // Optionally rotate refresh token for security
+    await RefreshToken.revoke(refreshToken);
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('user-agent');
+    const newRefreshTokenDoc = await RefreshToken.create(user.id, ipAddress, userAgent);
+
+    res.json({ 
+      token,
+      refreshToken: newRefreshTokenDoc.token
+    });
   } catch (error) {
     next(error);
   }
@@ -202,9 +213,14 @@ router.put('/me', authMiddleware, async (req, res, next) => {
   }
 });
 
-// Logout (client-side token invalidation)
-router.post('/logout', authMiddleware, (req, res) => {
-  res.json({ message: 'Logged out successfully' });
+// Logout (revoke all refresh tokens)
+router.post('/logout', authMiddleware, async (req, res, next) => {
+  try {
+    await RefreshToken.revokeAllForUser(req.user.id);
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = router;

@@ -12,7 +12,6 @@ services:
       - .env
     environment:
       NODE_ENV: production
-      # Variables DB séparées (le ! fonctionne sans problème)
       DB_HOST: 10.50.0.11
       DB_PORT: 5432
       DB_NAME: atlas_core_prod

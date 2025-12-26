@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { X, Plus, Trash2 } from 'lucide-react'
+import { X, Plus, Trash2, Calculator } from 'lucide-react'
 import { useTranslation } from '../../stores/languageStore'
 import { useMealStore } from '../../stores/mealStore'
+import api from '../../services/api'
 
 export default function RecipeModal({ isOpen, onClose, recipe }) {
   const { t } = useTranslation()
@@ -16,13 +17,7 @@ export default function RecipeModal({ isOpen, onClose, recipe }) {
     difficulty: 'medium',
     ingredients: [],
     instructions: [],
-    tags: [],
-    macros_per_serving: {
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0
-    }
+    tags: []
   })
 
   // Load recipe data when editing
@@ -37,8 +32,7 @@ export default function RecipeModal({ isOpen, onClose, recipe }) {
         difficulty: recipe.difficulty || 'medium',
         ingredients: typeof recipe.ingredients === 'string' ? JSON.parse(recipe.ingredients) : recipe.ingredients || [],
         instructions: recipe.instructions || [],
-        tags: recipe.tags || [],
-        macros_per_serving: typeof recipe.macros_per_serving === 'string' ? JSON.parse(recipe.macros_per_serving) : recipe.macros_per_serving || { calories: 0, protein: 0, carbs: 0, fat: 0 }
+        tags: recipe.tags || []
       })
     } else {
       setFormData({
@@ -50,20 +44,107 @@ export default function RecipeModal({ isOpen, onClose, recipe }) {
         difficulty: 'medium',
         ingredients: [],
         instructions: [],
-        tags: [],
-        macros_per_serving: { calories: 0, protein: 0, carbs: 0, fat: 0 }
+        tags: []
       })
     }
   }, [recipe, isOpen])
   const [currentIngredient, setCurrentIngredient] = useState({
     name: '',
     quantity: '',
-    unit: ''
+    unit: 'g'
+  })
+  const [ingredientSearch, setIngredientSearch] = useState('')
+  const [ingredientSuggestions, setIngredientSuggestions] = useState([])
+  const [showIngredientDropdown, setShowIngredientDropdown] = useState(false)
+  const [showCustomIngredientForm, setShowCustomIngredientForm] = useState(false)
+  const [customIngredientMacros, setCustomIngredientMacros] = useState({
+    calories: '',
+    protein: '',
+    carbs: '',
+    fat: ''
   })
   const [currentInstruction, setCurrentInstruction] = useState('')
   const [currentTag, setCurrentTag] = useState('')
+  const [calculatingNutrition, setCalculatingNutrition] = useState(false)
+  const [nutritionResult, setNutritionResult] = useState(null)
+
+  // Common units
+  const UNITS = [
+    { value: 'g', label: 'g' },
+    { value: 'kg', label: 'kg' },
+    { value: 'ml', label: 'ml' },
+    { value: 'l', label: 'l' },
+    { value: 'cup', label: t('cup') || 'tasse' },
+    { value: 'tbsp', label: t('tablespoon') || 'c. à soupe' },
+    { value: 'tsp', label: t('teaspoon') || 'c. à café' },
+    { value: 'piece', label: t('piece') || 'pièce' },
+    { value: 'oz', label: 'oz' },
+    { value: 'lb', label: 'lb' }
+  ]
 
   if (!isOpen) return null
+
+  // Search ingredients with debounce
+  const searchIngredients = async (query) => {
+    if (query.length < 2) {
+      setIngredientSuggestions([])
+      setShowIngredientDropdown(false)
+      return
+    }
+
+    try {
+      const { data } = await api.get(`/recipes/search-ingredients?query=${encodeURIComponent(query)}`)
+      setIngredientSuggestions(data)
+      setShowIngredientDropdown(true)
+    } catch (error) {
+      console.error('Failed to search ingredients:', error)
+      setShowIngredientDropdown(true) // Show dropdown even on error to allow custom ingredient
+    }
+  }
+
+  const handleIngredientSearchChange = (value) => {
+    setIngredientSearch(value)
+    setCurrentIngredient(prev => ({ ...prev, name: value }))
+    
+    // Debounce search
+    clearTimeout(window.ingredientSearchTimeout)
+    window.ingredientSearchTimeout = setTimeout(() => {
+      searchIngredients(value)
+    }, 300)
+  }
+
+  const selectIngredient = (ingredient) => {
+    setIngredientSearch(ingredient.name)
+    setCurrentIngredient(prev => ({ ...prev, name: ingredient.name }))
+    setShowIngredientDropdown(false)
+  }
+
+  const calculateNutrition = async () => {
+    if (formData.ingredients.length === 0) {
+      alert(t('addIngredientsFirst'))
+      return
+    }
+
+    setCalculatingNutrition(true)
+    setNutritionResult(null)
+
+    try {
+      const { data } = await api.post('/recipes/calculate-nutrition', {
+        ingredients: formData.ingredients,
+        servings: formData.servings
+      })
+
+      setNutritionResult(data)
+      
+      // Optionally auto-fill the macros (user can see the details and decide)
+      // For now, just show the results
+    } catch (error) {
+      console.error('Failed to calculate nutrition:', error)
+      alert(t('nutritionCalculationFailed'))
+    } finally {
+      setCalculatingNutrition(false)
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -88,7 +169,39 @@ export default function RecipeModal({ isOpen, onClose, recipe }) {
       ...prev,
       ingredients: [...prev.ingredients, currentIngredient]
     }))
-    setCurrentIngredient({ name: '', quantity: '', unit: '' })
+    setCurrentIngredient({ name: '', quantity: '', unit: 'g' })
+    setIngredientSearch('')
+    setIngredientSuggestions([])
+    setShowCustomIngredientForm(false)
+    setCustomIngredientMacros({ calories: '', protein: '', carbs: '', fat: '' })
+  }
+
+  const addCustomIngredient = async () => {
+    if (!currentIngredient.name || !currentIngredient.quantity) {
+      alert(t('fillRequiredFields') || 'Remplissez les champs requis')
+      return
+    }
+
+    // Save custom ingredient to database
+    try {
+      await api.post('/ingredients', {
+        name: currentIngredient.name,
+        name_fr: currentIngredient.name,
+        name_en: currentIngredient.name,
+        calories_per_100g: parseFloat(customIngredientMacros.calories) || 0,
+        protein_per_100g: parseFloat(customIngredientMacros.protein) || 0,
+        carbs_per_100g: parseFloat(customIngredientMacros.carbs) || 0,
+        fat_per_100g: parseFloat(customIngredientMacros.fat) || 0,
+        category: 'custom',
+        source: 'user'
+      })
+      
+      // Add to recipe
+      addIngredient()
+    } catch (error) {
+      console.error('Failed to save custom ingredient:', error)
+      alert(t('failedToSaveIngredient') || 'Échec de la sauvegarde de l\'ingrédient')
+    }
   }
 
   const removeIngredient = (index) => {
@@ -225,7 +338,51 @@ export default function RecipeModal({ isOpen, onClose, recipe }) {
 
           {/* Ingredients */}
           <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-lg font-semibold text-olympus-navy mb-4">{t('ingredients')}</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-olympus-navy">{t('ingredients')}</h3>
+              {formData.ingredients.length > 0 && (
+                <button
+                  type="button"
+                  onClick={calculateNutrition}
+                  disabled={calculatingNutrition}
+                  className="btn-secondary flex items-center gap-2 text-sm"
+                >
+                  <Calculator size={16} />
+                  {calculatingNutrition ? t('calculating') : t('calculateNutrition')}
+                </button>
+              )}
+            </div>
+
+            {/* Nutrition Results */}
+            {nutritionResult && (
+              <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-green-900">{t('nutritionResults')}</h4>
+                  <span className="text-xs text-green-700">{nutritionResult.coverage}</span>
+                </div>
+                <div className="grid grid-cols-4 gap-3 text-center">
+                  <div>
+                    <div className="text-2xl font-bold text-green-900">{nutritionResult.perServing.calories}</div>
+                    <div className="text-xs text-green-700">{t('calories')}</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-green-900">{nutritionResult.perServing.protein}g</div>
+                    <div className="text-xs text-green-700">{t('protein')}</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-green-900">{nutritionResult.perServing.carbs}g</div>
+                    <div className="text-xs text-green-700">{t('carbs')}</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-green-900">{nutritionResult.perServing.fat}g</div>
+                    <div className="text-xs text-green-700">{t('fat')}</div>
+                  </div>
+                </div>
+                <p className="text-xs text-green-700 mt-2 text-center">
+                  {t('perServing')} ({formData.servings} {t('servings')})
+                </p>
+              </div>
+            )}
             
             <div className="space-y-2 mb-4">
               {formData.ingredients.map((ing, index) => (
@@ -247,35 +404,78 @@ export default function RecipeModal({ isOpen, onClose, recipe }) {
             <div className="space-y-2">
               <div className="grid grid-cols-12 gap-2 text-xs text-gray-500">
                 <div className="col-span-5">{t('ingredient')}</div>
-                <div className="col-span-3">{t('quantity')} (ex: 2, 1/2, 250)</div>
-                <div className="col-span-2">{t('unit')} (ex: tasse, g, c. à soupe)</div>
+                <div className="col-span-3">{t('quantity')}</div>
+                <div className="col-span-2">{t('unit')}</div>
                 <div className="col-span-2"></div>
               </div>
               <div className="grid grid-cols-12 gap-2">
+                {/* Ingredient Search with Dropdown */}
+                <div className="col-span-5 relative">
+                  <input
+                    type="text"
+                    placeholder={t('searchIngredient') || 'Poulet, riz, tomate...'}
+                    value={ingredientSearch}
+                    onChange={(e) => handleIngredientSearchChange(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addIngredient())}
+                    onFocus={() => ingredientSuggestions.length > 0 && setShowIngredientDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowIngredientDropdown(false), 200)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  
+                  {/* Dropdown with suggestions */}
+                  {showIngredientDropdown && ingredientSearch.length >= 2 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {ingredientSuggestions.length > 0 && ingredientSuggestions.map((suggestion, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => selectIngredient(suggestion)}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex justify-between items-center"
+                        >
+                          <span className="font-medium">{suggestion.name}</span>
+                          <span className="text-xs text-gray-500">
+                            {suggestion.calories}cal | {suggestion.protein}g P
+                          </span>
+                        </button>
+                      ))}
+                      
+                      {/* Not found? Create custom */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowIngredientDropdown(false)
+                          setShowCustomIngredientForm(true)
+                        }}
+                        className="w-full px-3 py-2 text-left text-sm bg-blue-50 hover:bg-blue-100 border-t border-blue-200 text-blue-700 font-medium"
+                      >
+                        + {t('notFound')} "{ingredientSearch}" ? {t('addCustomIngredient')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
                 <input
                   type="text"
-                  placeholder="Tomate"
-                  value={currentIngredient.name}
-                  onChange={(e) => setCurrentIngredient(prev => ({ ...prev, name: e.target.value }))}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addIngredient())}
-                  className="col-span-5 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-                <input
-                  type="text"
-                  placeholder="2"
+                  placeholder="200"
                   value={currentIngredient.quantity}
                   onChange={(e) => setCurrentIngredient(prev => ({ ...prev, quantity: e.target.value }))}
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addIngredient())}
                   className="col-span-3 px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 />
-                <input
-                  type="text"
-                  placeholder="tasses"
+                
+                {/* Unit Selector */}
+                <select
                   value={currentIngredient.unit}
                   onChange={(e) => setCurrentIngredient(prev => ({ ...prev, unit: e.target.value }))}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addIngredient())}
                   className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
+                >
+                  {UNITS.map(unit => (
+                    <option key={unit.value} value={unit.value}>
+                      {unit.label}
+                    </option>
+                  ))}
+                </select>
+                
                 <button
                   type="button"
                   onClick={addIngredient}
@@ -284,6 +484,79 @@ export default function RecipeModal({ isOpen, onClose, recipe }) {
                   <Plus size={16} />
                 </button>
               </div>
+              
+              {/* Custom Ingredient Form (if not found) */}
+              {showCustomIngredientForm && (
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-semibold text-blue-900">
+                      {t('addCustomIngredient') || 'Ajouter un ingrédient personnalisé'}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomIngredientForm(false)}
+                      className="text-blue-500 hover:text-blue-700"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  
+                  <p className="text-xs text-blue-700 mb-3">
+                    {t('customIngredientHelp') || 'Entrez les macros pour 100g de cet ingrédient'}
+                  </p>
+                  
+                  <div className="grid grid-cols-4 gap-2 mb-3">
+                    <div>
+                      <label className="text-xs text-blue-900">{t('calories')}</label>
+                      <input
+                        type="number"
+                        placeholder="165"
+                        value={customIngredientMacros.calories}
+                        onChange={(e) => setCustomIngredientMacros(prev => ({ ...prev, calories: e.target.value }))}
+                        className="w-full px-2 py-1 border border-blue-300 rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-blue-900">{t('protein')} (g)</label>
+                      <input
+                        type="number"
+                        placeholder="31"
+                        value={customIngredientMacros.protein}
+                        onChange={(e) => setCustomIngredientMacros(prev => ({ ...prev, protein: e.target.value }))}
+                        className="w-full px-2 py-1 border border-blue-300 rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-blue-900">{t('carbs')} (g)</label>
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={customIngredientMacros.carbs}
+                        onChange={(e) => setCustomIngredientMacros(prev => ({ ...prev, carbs: e.target.value }))}
+                        className="w-full px-2 py-1 border border-blue-300 rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-blue-900">{t('fat')} (g)</label>
+                      <input
+                        type="number"
+                        placeholder="3.6"
+                        value={customIngredientMacros.fat}
+                        onChange={(e) => setCustomIngredientMacros(prev => ({ ...prev, fat: e.target.value }))}
+                        className="w-full px-2 py-1 border border-blue-300 rounded text-sm"
+                      />
+                    </div>
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={addCustomIngredient}
+                    className="w-full btn-primary text-sm"
+                  >
+                    {t('saveAndAdd') || 'Sauvegarder et ajouter'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -324,65 +597,6 @@ export default function RecipeModal({ isOpen, onClose, recipe }) {
               >
                 <Plus size={16} />
               </button>
-            </div>
-          </div>
-
-          {/* Macros */}
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-lg font-semibold text-olympus-navy mb-4">{t('macros')}</h3>
-            <div className="grid grid-cols-4 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">{t('calories')}</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.macros_per_serving.calories}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    macros_per_serving: { ...prev.macros_per_serving, calories: parseInt(e.target.value) }
-                  }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">{t('protein')} (g)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.macros_per_serving.protein}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    macros_per_serving: { ...prev.macros_per_serving, protein: parseInt(e.target.value) }
-                  }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">{t('carbs')} (g)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.macros_per_serving.carbs}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    macros_per_serving: { ...prev.macros_per_serving, carbs: parseInt(e.target.value) }
-                  }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">{t('fat')} (g)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.macros_per_serving.fat}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    macros_per_serving: { ...prev.macros_per_serving, fat: parseInt(e.target.value) }
-                  }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-              </div>
             </div>
           </div>
 

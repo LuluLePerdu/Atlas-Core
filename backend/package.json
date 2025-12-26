@@ -9,6 +9,7 @@
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
     "seed": "knex seed:run",
+    "import:ingredients": "node scripts/importOpenFoodFacts.js",
     "test": "jest --coverage"
   },
   "keywords": ["planner", "fitness", "meal-prep", "calendar"],
@@ -26,7 +27,10 @@
     "helmet": "^7.1.0",
     "express-rate-limit": "^7.1.5",
     "morgan": "^1.10.0",
-    "compression": "^1.7.4"
+    "compression": "^1.7.4",
+    "ical-generator": "^7.1.0",
+    "uuid": "^9.0.1",
+    "axios": "^1.6.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",

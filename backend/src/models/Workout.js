@@ -2,18 +2,39 @@ const db = require('../config/database');
 
 class Workout {
   static async create(workoutData) {
+    // Clean exercises data - remove empty string values
+    const exercises = (workoutData.exercises || []).map(exercise => {
+      const cleaned = { ...exercise };
+      // Remove empty strings
+      Object.keys(cleaned).forEach(key => {
+        if (cleaned[key] === '') {
+          delete cleaned[key];
+        }
+      });
+      return cleaned;
+    });
+
+    // Use db.raw to properly handle json/jsonb type
     const [workout] = await db('workouts')
       .insert({
         ...workoutData,
+        exercises: db.raw('?::jsonb', [JSON.stringify(exercises)]),
         created_at: new Date(),
         updated_at: new Date()
       })
       .returning('*');
+    
+    // Parse exercises back to object for response
+    if (workout.exercises && typeof workout.exercises === 'string') {
+      workout.exercises = JSON.parse(workout.exercises);
+    }
+    
     return workout;
   }
 
   static async findById(id) {
-    return await db('workouts').where({ id }).first();
+    const workout = await db('workouts').where({ id }).first();
+    return workout;
   }
 
   static async findByUser(userId, filters = {}) {
@@ -23,17 +44,38 @@ class Workout {
       query = query.where({ program_type: filters.program_type });
     }
 
-    return await query.orderBy('created_at', 'desc');
+    const workouts = await query.orderBy('created_at', 'desc');
+    return workouts;
   }
 
   static async update(id, updates) {
+    const updateData = { ...updates, updated_at: new Date() };
+    
+    // Clean exercises if present
+    if (updateData.exercises) {
+      const exercises = updateData.exercises.map(exercise => {
+        const cleaned = { ...exercise };
+        // Remove empty strings
+        Object.keys(cleaned).forEach(key => {
+          if (cleaned[key] === '') {
+            delete cleaned[key];
+          }
+        });
+        return cleaned;
+      });
+      updateData.exercises = db.raw('?::jsonb', [JSON.stringify(exercises)]);
+    }
+    
     const [workout] = await db('workouts')
       .where({ id })
-      .update({
-        ...updates,
-        updated_at: new Date()
-      })
+      .update(updateData)
       .returning('*');
+    
+    // Parse exercises back to object for response
+    if (workout && workout.exercises && typeof workout.exercises === 'string') {
+      workout.exercises = JSON.parse(workout.exercises);
+    }
+    
     return workout;
   }
 

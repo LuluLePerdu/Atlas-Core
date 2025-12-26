@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-// Get all exercises
+// Get all exercises (user's + public)
 router.get('/', async (req, res, next) => {
   try {
     const { category, muscle_groups } = req.query;
@@ -15,8 +15,17 @@ router.get('/', async (req, res, next) => {
     if (category) filters.category = category;
     if (muscle_groups) filters.muscle_groups = muscle_groups.split(',');
 
-    const exercises = await Exercise.findByUser(req.user.id, filters);
-    res.json(exercises);
+    // Get both user's exercises and public exercises
+    const userExercises = await Exercise.findByUser(req.user.id, filters);
+    const publicExercises = await Exercise.findPublic(filters);
+    
+    // Combine and deduplicate (in case user created same exercise)
+    const allExercises = [...userExercises, ...publicExercises];
+    const uniqueExercises = allExercises.filter((exercise, index, self) =>
+      index === self.findIndex((e) => e.id === exercise.id)
+    );
+    
+    res.json(uniqueExercises);
   } catch (error) {
     next(error);
   }

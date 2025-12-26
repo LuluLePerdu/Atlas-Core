@@ -94,6 +94,17 @@ router.get('/transactions/month/:year/:month', async (req, res, next) => {
   }
 })
 
+// Get category breakdown for a month
+router.get('/transactions/breakdown/:year/:month', async (req, res, next) => {
+  try {
+    const { year, month } = req.params
+    const categoryBreakdown = await Transaction.getCategoryBreakdown(req.user.id, parseInt(month), parseInt(year))
+    res.json(categoryBreakdown)
+  } catch (error) {
+    next(error)
+  }
+})
+
 // Get monthly summary
 router.get('/summary/:year/:month', async (req, res, next) => {
   try {

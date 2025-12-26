@@ -126,10 +126,6 @@ export default function Dashboard() {
               <span className="text-olympus-gold mr-2">•</span>
               <span>{t('tip3')}</span>
             </li>
-            <li className="flex items-start">
-              <span className="text-olympus-gold mr-2">•</span>
-              <span>{t('tip4')}</span>
-            </li>
           </ul>
         </div>
       </div>

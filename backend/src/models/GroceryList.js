@@ -5,28 +5,52 @@ class GroceryList {
     const [list] = await db('grocery_lists')
       .insert({
         ...groceryData,
+        items: JSON.stringify(groceryData.items),
         generated_at: new Date()
       })
       .returning('*');
-    return list;
+    
+    // Parse items back to object for return
+    return {
+      ...list,
+      items: typeof list.items === 'string' ? JSON.parse(list.items) : list.items
+    };
   }
 
   static async findById(id) {
-    return await db('grocery_lists').where({ id }).first();
+    const list = await db('grocery_lists').where({ id }).first();
+    if (list && typeof list.items === 'string') {
+      list.items = JSON.parse(list.items);
+    }
+    return list;
   }
 
   static async findByUserAndWeek(userId, weekStartDate) {
-    return await db('grocery_lists')
+    const list = await db('grocery_lists')
       .where({ user_id: userId, week_start_date: weekStartDate })
       .first();
+    if (list && typeof list.items === 'string') {
+      list.items = JSON.parse(list.items);
+    }
+    return list;
   }
 
   static async update(id, updates) {
+    const updateData = { ...updates };
+    if (updateData.items) {
+      updateData.items = JSON.stringify(updateData.items);
+    }
+    
     const [list] = await db('grocery_lists')
       .where({ id })
-      .update(updates)
+      .update(updateData)
       .returning('*');
-    return list;
+    
+    // Parse items back to object for return
+    return {
+      ...list,
+      items: typeof list.items === 'string' ? JSON.parse(list.items) : list.items
+    };
   }
 
   static async upsert(userId, weekStartDate, items, mealPlanId) {

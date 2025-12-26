@@ -8,6 +8,7 @@ require('dotenv').config();
 const errorHandler = require('./middleware/errorHandler');
 const authRoutes = require('./routes/authRoutes');
 const calendarRoutes = require('./routes/calendarRoutes');
+const caldavRoutes = require('./routes/caldavRoutes');
 const workoutRoutes = require('./routes/workoutRoutes');
 const workoutSessionRoutes = require('./routes/workoutSessionRoutes');
 const exerciseRoutes = require('./routes/exerciseRoutes');
@@ -40,6 +41,7 @@ app.get('/health', (req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/calendar', calendarRoutes);
+app.use('/caldav', caldavRoutes);
 app.use('/api/workouts', workoutRoutes);
 app.use('/api/workout-sessions', workoutSessionRoutes);
 app.use('/api/exercises', exerciseRoutes);
@@ -60,8 +62,8 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Atlas Core API running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Atlas Core API running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 module.exports = app;

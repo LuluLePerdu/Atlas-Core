@@ -12,6 +12,9 @@ const validate = (validations) => {
       return next();
     }
 
+    console.log('Validation failed:', JSON.stringify(errors.array(), null, 2));
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+
     res.status(400).json({
       error: 'Validation failed',
       details: errors.array()
@@ -46,7 +49,7 @@ const calendarValidation = {
 const workoutValidation = {
   create: [
     body('name').isLength({ min: 1, max: 255 }).trim(),
-    body('exercises').isArray({ min: 1 }),
+    body('exercises').isArray(),
     body('program_type').optional().isString()
   ]
 };

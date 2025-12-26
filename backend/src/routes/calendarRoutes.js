@@ -22,6 +22,8 @@ router.get('/week/:date', async (req, res, next) => {
 // Create new calendar block
 router.post('/block', validate(calendarValidation.createBlock), async (req, res, next) => {
   try {
+    console.log('Creating block with data:', JSON.stringify(req.body, null, 2));
+    
     const blockData = {
       ...req.body,
       user_id: req.user.id
@@ -30,6 +32,7 @@ router.post('/block', validate(calendarValidation.createBlock), async (req, res,
     const block = await CalendarBlock.create(blockData);
     res.status(201).json(block);
   } catch (error) {
+    console.error('Block creation error:', error);
     next(error);
   }
 });

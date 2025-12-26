@@ -96,6 +96,26 @@ router.put('/:id', async (req, res, next) => {
   }
 });
 
+// Update grocery list (PATCH for partial updates)
+router.patch('/:id', async (req, res, next) => {
+  try {
+    const groceryList = await GroceryList.findById(req.params.id);
+
+    if (!groceryList) {
+      return res.status(404).json({ error: 'Grocery list not found' });
+    }
+
+    if (groceryList.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const updated = await GroceryList.update(req.params.id, req.body);
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Toggle item checked
 router.patch('/:id/item/:idx', async (req, res, next) => {
   try {
