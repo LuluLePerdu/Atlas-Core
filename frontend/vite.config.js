@@ -9,6 +9,12 @@ export default defineConfig({
     watch: {
       usePolling: true,
     },
+    allowedHosts: [
+      'atlas.local',
+      'atlas.ludwig-emmanuel.dev',
+      'localhost',
+      '10.20.0.21'
+    ],
     proxy: {
       '/api': {
         target: 'http://backend:5000',

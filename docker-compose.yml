@@ -1,93 +1,78 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: atlas-core-db
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - atlas-network
-
+  # Backend API
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    container_name: atlas-backend
+    restart: unless-stopped
     env_file:
       - .env
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      NODE_ENV: production
+      # Variables DB séparées (le ! fonctionne sans problème)
+      DB_HOST: 10.50.0.11
+      DB_PORT: 5432
+      DB_NAME: atlas_core_prod
+      DB_USER: atlas_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      # JWT
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
-      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
-      PORT: ${PORT:-5000}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
-      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
-      RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-100}
-    expose:
-      - "${PORT:-5000}"
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
-    depends_on:
-      postgres:
-        condition: service_healthy
-    command: npm run dev
+      JWT_EXPIRES_IN: 1h
+      JWT_REFRESH_EXPIRES_IN: 7d
+      PORT: 5000
+      CORS_ORIGIN: https://atlas.ludwig-emmanuel.dev,http://atlas.local
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - atlas-network
-    # Scale backend with: docker-compose up -d --scale backend=3
-
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+  # Frontend (Vite dev server)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    container_name: atlas-frontend
+    restart: unless-stopped
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost/api}
-    expose:
-      - "3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    depends_on:
-      - backend
-    command: npm run dev
+      VITE_API_URL: https://atlas.ludwig-emmanuel.dev/api
+      VITE_API_URL_LOCAL: http://atlas.local/api
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - atlas-network
 
+  # Nginx Reverse Proxy (démarre en dernier)
   nginx:
     build:
       context: ./nginx
       dockerfile: Dockerfile
-    container_name: atlas-core-nginx
+    container_name: atlas-nginx
+    restart: unless-stopped
     ports:
       - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - nginx_logs:/var/log/nginx
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
     networks:
       - atlas-network
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
-  nginx_logs:
 
 networks:
   atlas-network:

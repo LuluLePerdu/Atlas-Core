@@ -4,11 +4,15 @@ module.exports = {
   development: {
     client: 'pg',
     connection: process.env.DATABASE_URL || {
-      host: 'localhost',
-      port: 5432,
-      database: 'atlas_core',
-      user: 'atlas_user',
-      password: 'atlas_password'
+      host: process.env.DB_HOST || 'localhost',
+      port: process.env.DB_PORT || 5432,
+      database: process.env.DB_NAME || 'atlas_core',
+      user: process.env.DB_USER || 'atlas_user',
+      password: process.env.DB_PASSWORD || 'atlas_password'
+    },
+    pool: {
+      min: 2,
+      max: 10
     },
     migrations: {
       directory: './migrations',
@@ -18,9 +22,16 @@ module.exports = {
       directory: './seeds'
     }
   },
+  
   production: {
     client: 'pg',
-    connection: process.env.DATABASE_URL,
+    connection: {
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT) || 5432,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+    },
     pool: {
       min: 2,
       max: 10
@@ -28,6 +39,9 @@ module.exports = {
     migrations: {
       directory: './migrations',
       tableName: 'knex_migrations'
+    },
+    seeds: {
+      directory: './seeds'
     }
   }
 };

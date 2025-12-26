@@ -6,7 +6,8 @@ const createRateLimiter = (windowMs, max) => {
     max: max || parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
     message: 'Too many requests, please try again later',
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    validate: { trustProxy: false }
   });
 };
 
