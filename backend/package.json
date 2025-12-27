@@ -9,7 +9,7 @@
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
     "seed": "knex seed:run",
-    "import:ingredients": "node scripts/importOpenFoodFacts.js",
+    "import:ingredients": "node --max-old-space-size=4096 scripts/importOpenFoodFacts.js",
     "test": "jest --coverage"
   },
   "keywords": ["planner", "fitness", "meal-prep", "calendar"],

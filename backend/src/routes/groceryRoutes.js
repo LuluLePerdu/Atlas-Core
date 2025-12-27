@@ -40,28 +40,47 @@ router.post('/generate', async (req, res, next) => {
     // Get all blocks for this week
     const blocks = await CalendarBlock.findByUserAndWeek(req.user.id, week_start_date);
 
-    // Filter only meal blocks that have a recipe_id
-    const mealBlocks = blocks.filter(block => block.type === 'meal' && block.recipe_id);
+    // Filter only meal blocks that have recipes (either in recipe_id or linked_recipe_ids)
+    const mealBlocks = blocks.filter(block => {
+      if (block.type !== 'meal') return false;
+      return block.recipe_id || (block.linked_recipe_ids && block.linked_recipe_ids.length > 0);
+    });
 
     if (mealBlocks.length === 0) {
       return res.status(404).json({ error: 'No meals found for this week' });
     }
 
-    // Fetch all recipes
-    const recipeIds = [...new Set(mealBlocks.map(block => block.recipe_id))];
+    // Fetch all recipes (from both recipe_id and linked_recipe_ids)
+    const recipeIds = [...new Set(
+      mealBlocks.flatMap(block => {
+        const ids = [];
+        if (block.recipe_id) ids.push(block.recipe_id);
+        if (block.linked_recipe_ids) ids.push(...block.linked_recipe_ids);
+        return ids;
+      })
+    )];
     const recipes = await Promise.all(
       recipeIds.map(id => Recipe.findById(id))
     );
 
     // Transform blocks to meal format for grocery generator
-    const meals = mealBlocks.map(block => ({
-      recipe_id: block.recipe_id,
-      day: block.day_of_week,
-      servings: 1 // Default to 1, can be customized later
-    }));
+    const meals = mealBlocks.flatMap(block => {
+      const blockRecipeIds = [];
+      if (block.recipe_id) blockRecipeIds.push(block.recipe_id);
+      if (block.linked_recipe_ids) blockRecipeIds.push(...block.linked_recipe_ids);
+      
+      return blockRecipeIds.map(recipeId => ({
+        recipe_id: recipeId,
+        day: block.day_of_week,
+        servings_needed: 1 // Default to 1, can be customized later
+      }));
+    });
 
     // Generate grocery list
-    const items = groceryGenerator.generateGroceryList(meals, recipes);
+    const categorizedItems = groceryGenerator.generateGroceryList(meals, recipes);
+    
+    // Flatten the categorized structure into a simple array of items
+    const items = categorizedItems.flatMap(category => category.items);
 
     const groceryList = await GroceryList.upsert(
       req.user.id,

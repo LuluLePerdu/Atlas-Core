@@ -8,15 +8,14 @@ export const useLanguageStore = create((set) => ({
     localStorage.setItem('language', lang)
     set({ language: lang })
   },
-  
+   
   t: (key) => {
     const lang = localStorage.getItem('language') || 'en'
     return translations[lang]?.[key] || translations.en[key] || key
   }
 }))
-
-// Hook for easy translation access
-export const useTranslation = () => {
+                                                                                                                                                                                                                                                                                                                                                                                                                     
+export const useTranslation = () => {        
   const { language, setLanguage } = useLanguageStore()
   
   const t = (key) => {

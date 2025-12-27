@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ShoppingCart, X, Printer } from 'lucide-react'
+import { ShoppingCart, X, Printer, RefreshCw } from 'lucide-react'
 import { useTranslation } from '../../stores/languageStore'
 import api from '../../services/api'
 
@@ -11,11 +11,40 @@ export default function GroceryListModal({ isOpen, onClose, weekStartDate }) {
 
   useEffect(() => {
     if (isOpen && weekStartDate) {
-      generateGroceryList()
+      loadOrGenerateGroceryList()
     }
   }, [isOpen, weekStartDate])
 
-  const generateGroceryList = async () => {
+  const loadOrGenerateGroceryList = async () => {
+    if (!weekStartDate) return
+
+    setLoading(true)
+    setError(null)
+    try {
+      // Try to load existing list first
+      try {
+        const { data } = await api.get(`/grocery/week/${weekStartDate}`)
+        setGroceryList(data)
+        setLoading(false)
+        return
+      } catch (err) {
+        // If 404, list doesn't exist yet, generate it
+        if (err.response?.status !== 404) {
+          throw err
+        }
+      }
+
+      // Generate new list if it doesn't exist
+      const { data } = await api.post('/grocery/generate', { week_start_date: weekStartDate })
+      setGroceryList(data)
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to load grocery list')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const regenerateGroceryList = async () => {
     if (!weekStartDate) return
 
     setLoading(true)
@@ -88,13 +117,23 @@ export default function GroceryListModal({ isOpen, onClose, weekStartDate }) {
           </div>
           <div className="flex items-center gap-2">
             {groceryList && (
-              <button 
-                onClick={() => window.print()} 
-                className="p-2 hover:bg-white/10 rounded transition"
-                title={t('print')}
-              >
-                <Printer size={20} />
-              </button>
+              <>
+                <button 
+                  onClick={regenerateGroceryList}
+                  disabled={loading}
+                  className="p-2 hover:bg-white/10 rounded transition disabled:opacity-50"
+                  title={t('regenerate') || 'Regenerate list'}
+                >
+                  <RefreshCw size={20} />
+                </button>
+                <button 
+                  onClick={() => window.print()} 
+                  className="p-2 hover:bg-white/10 rounded transition"
+                  title={t('print')}
+                >
+                  <Printer size={20} />
+                </button>
+              </>
             )}
             <button onClick={onClose} className="p-2 hover:bg-white/10 rounded transition">
               <X size={24} />
@@ -114,7 +153,7 @@ export default function GroceryListModal({ isOpen, onClose, weekStartDate }) {
           {error && (
             <div className="text-center py-12">
               <p className="text-red-600 mb-4">{error}</p>
-              <button onClick={generateGroceryList} className="btn-primary">
+              <button onClick={loadOrGenerateGroceryList} className="btn-primary">
                 {t('retry')}
               </button>
             </div>
