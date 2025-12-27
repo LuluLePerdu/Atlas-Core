@@ -100,14 +100,14 @@ export default function GroceryListModal({ isOpen, onClose, weekStartDate }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-olympus-navy text-white px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <ShoppingCart size={28} />
-            <div>
-              <h2 className="text-2xl font-display">{t('groceryList')}</h2>
+        <div className="bg-olympus-navy text-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <ShoppingCart size={24} className="flex-shrink-0 sm:w-7 sm:h-7" />
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-2xl font-display truncate">{t('groceryList')}</h2>
               {groceryList && (
                 <p className="text-sm text-olympus-gold">
                   {new Date(groceryList.week_start_date).toLocaleDateString()}
@@ -115,34 +115,34 @@ export default function GroceryListModal({ isOpen, onClose, weekStartDate }) {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {groceryList && (
               <>
                 <button 
                   onClick={regenerateGroceryList}
                   disabled={loading}
-                  className="p-2 hover:bg-white/10 rounded transition disabled:opacity-50"
+                  className="p-1.5 sm:p-2 hover:bg-white/10 rounded transition disabled:opacity-50"
                   title={t('regenerate') || 'Regenerate list'}
                 >
-                  <RefreshCw size={20} />
+                  <RefreshCw size={18} className="sm:w-5 sm:h-5" />
                 </button>
                 <button 
                   onClick={() => window.print()} 
-                  className="p-2 hover:bg-white/10 rounded transition"
+                  className="hidden sm:block p-2 hover:bg-white/10 rounded transition"
                   title={t('print')}
                 >
                   <Printer size={20} />
                 </button>
               </>
             )}
-            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded transition">
-              <X size={24} />
+            <button onClick={onClose} className="p-1.5 sm:p-2 hover:bg-white/10 rounded transition">
+              <X size={20} className="sm:w-6 sm:h-6" />
             </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6">
           {loading && (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-olympus-gold mx-auto"></div>
@@ -163,28 +163,28 @@ export default function GroceryListModal({ isOpen, onClose, weekStartDate }) {
             <div>
               {/* Total Summary */}
               {groceryList.total_spent > 0 && (
-                <div className="bg-olympus-gold/10 border-2 border-olympus-gold rounded-lg p-4 mb-6">
+                <div className="bg-olympus-gold/10 border-2 border-olympus-gold rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-lg font-semibold text-olympus-navy">{t('totalSpent')}:</span>
-                    <span className="text-3xl font-bold text-olympus-gold">
+                    <span className="text-base sm:text-lg font-semibold text-olympus-navy">{t('totalSpent')}:</span>
+                    <span className="text-2xl sm:text-3xl font-bold text-olympus-gold">
                       ${groceryList.total_spent.toFixed(2)}
                     </span>
                   </div>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-xs sm:text-sm text-gray-600">
                     {groceryList.items.filter(i => i.checked).length} of {groceryList.items.length} items purchased
                   </div>
                 </div>
               )}
 
               {/* Items Table */}
-              <div className="border border-gray-300 rounded-lg overflow-hidden">
-                <table className="w-full">
+              <div className="border border-gray-300 rounded-lg overflow-hidden overflow-x-auto">
+                <table className="w-full min-w-[500px]">
                   <thead className="bg-gray-100 border-b border-gray-300">
                     <tr>
-                      <th className="w-12 p-3"></th>
-                      <th className="text-left p-3 font-semibold text-olympus-navy">Item</th>
-                      <th className="text-left p-3 font-semibold text-olympus-navy w-32">Quantity</th>
-                      <th className="text-left p-3 font-semibold text-olympus-navy w-32">Price</th>
+                      <th className="w-10 sm:w-12 p-2 sm:p-3"></th>
+                      <th className="text-left p-2 sm:p-3 font-semibold text-olympus-navy text-sm sm:text-base">Item</th>
+                      <th className="text-left p-2 sm:p-3 font-semibold text-olympus-navy w-24 sm:w-32 text-sm sm:text-base">Quantity</th>
+                      <th className="text-left p-2 sm:p-3 font-semibold text-olympus-navy w-24 sm:w-32 text-sm sm:text-base">Price</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -195,32 +195,32 @@ export default function GroceryListModal({ isOpen, onClose, weekStartDate }) {
                           item.checked ? 'opacity-60' : ''
                         }`}
                       >
-                        <td className="p-3 text-center">
+                        <td className="p-2 sm:p-3 text-center">
                           <input
                             type="checkbox"
                             checked={item.checked || false}
                             onChange={() => toggleCheck(index)}
-                            className="h-5 w-5 text-olympus-gold rounded focus:ring-olympus-gold cursor-pointer"
+                            className="h-4 w-4 sm:h-5 sm:w-5 text-olympus-gold rounded focus:ring-olympus-gold cursor-pointer"
                           />
                         </td>
-                        <td className="p-3">
+                        <td className="p-2 sm:p-3">
                           <div>
-                            <p className={`font-medium ${item.checked ? 'line-through text-gray-500' : 'text-olympus-navy'}`}>
+                            <p className={`font-medium text-sm sm:text-base ${item.checked ? 'line-through text-gray-500' : 'text-olympus-navy'}`}>
                               {item.name}
                             </p>
                             {item.source_recipes && item.source_recipes.length > 0 && (
-                              <p className="text-xs text-gray-500 mt-1">
+                              <p className="text-xs text-gray-500 mt-0.5 sm:mt-1">
                                 Used in {item.source_recipes.length} recipe{item.source_recipes.length > 1 ? 's' : ''}
                               </p>
                             )}
                           </div>
                         </td>
-                        <td className="p-3 text-gray-700">
+                        <td className="p-2 sm:p-3 text-gray-700 text-sm sm:text-base">
                           {typeof item.quantity === 'number' ? item.quantity.toFixed(1) : item.quantity} {item.unit}
                         </td>
-                        <td className="p-3">
+                        <td className="p-2 sm:p-3">
                           <div className="flex items-center">
-                            <span className="text-gray-500 mr-1">$</span>
+                            <span className="text-gray-500 mr-0.5 sm:mr-1 text-sm">$</span>
                             <input
                               type="number"
                               step="0.01"
@@ -228,7 +228,7 @@ export default function GroceryListModal({ isOpen, onClose, weekStartDate }) {
                               value={item.price || ''}
                               onChange={(e) => handlePriceChange(index, e.target.value)}
                               placeholder="0.00"
-                              className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-olympus-gold focus:border-transparent"
+                              className="w-16 sm:w-20 px-1.5 sm:px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-olympus-gold focus:border-transparent"
                             />
                           </div>
                         </td>
